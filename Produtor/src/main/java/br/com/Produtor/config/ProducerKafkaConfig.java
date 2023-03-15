@@ -7,12 +7,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.*;
 import org.springframework.kafka.support.serializer.JsonSerializer;
 
 import java.io.Serializable;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.regex.Pattern;
 
 
 @Configuration
@@ -63,7 +67,9 @@ public class ProducerKafkaConfig {
     {
        return new KafkaAdmin.NewTopics(
                TopicBuilder.name("topic-1").partitions(2).replicas(1).build(),
-               TopicBuilder.name("person-topic").partitions(2).build()
+               TopicBuilder.name("my-topic").partitions(10).build(),
+               TopicBuilder.name("person-topic").partitions(2).build(),
+               TopicBuilder.name("city-topic").partitions(2).build()
 
        );
 
@@ -81,5 +87,23 @@ public class ProducerKafkaConfig {
     @Bean
     public KafkaTemplate<String, Serializable> jsonKafkaTemplate() {
         return new KafkaTemplate(jsonProducerFactory());
+   }
+
+
+   @Bean
+    public RoutingKafkaTemplate routingKafkaTemplate(GenericApplicationContext genericApplicationContext,
+                                                     ProducerFactory producerFactory)
+   {
+       var jsonProducerFactory = jsonProducerFactory();
+
+       genericApplicationContext.registerBean(DefaultKafkaProducerFactory.class, "jsonPF", jsonProducerFactory);
+
+       Map<Pattern, ProducerFactory<Object, Object>> map = new LinkedHashMap<>();
+       map.put(Pattern.compile("topic-.*"), producerFactory);
+       map.put(Pattern.compile(".*-topic"), jsonProducerFactory);
+       return new RoutingKafkaTemplate(map);
+
+
+
    }
 }
